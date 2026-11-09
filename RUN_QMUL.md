@@ -18,15 +18,15 @@
 继续训练到累计 200 轮（这是继续训练命令，不表示已执行）：
 
 ```powershell
-& D:\miniconda\envs\dp\python.exe -u Code\run_qmul.py --category chair --output runs\chair --epochs 200 --resume runs\chair\last.pt
-& D:\miniconda\envs\dp\python.exe -u Code\run_qmul.py --category shoe --output runs\shoe --epochs 200 --resume runs\shoe\last.pt
+& D:\miniconda\envs\dp\python.exe -u Code\run_qmul.py --category chair --output runs\chair --epochs 200 --resume runs\chair\last_42.pt
+& D:\miniconda\envs\dp\python.exe -u Code\run_qmul.py --category shoe --output runs\shoe --epochs 200 --resume runs\shoe\last_42.pt
 ```
 
 独立重载权重评估：
 
 ```powershell
-& D:\miniconda\envs\dp\python.exe Code\run_qmul.py --category chair --output runs\chair_verify --resume runs\chair\last.pt --evaluate-only
-& D:\miniconda\envs\dp\python.exe Code\run_qmul.py --category shoe --output runs\shoe_verify --resume runs\shoe\last.pt --evaluate-only
+& D:\miniconda\envs\dp\python.exe Code\run_qmul.py --category chair --output runs\chair_verify --resume runs\chair\last_42.pt --evaluate-only
+& D:\miniconda\envs\dp\python.exe Code\run_qmul.py --category shoe --output runs\shoe_verify --resume runs\shoe\last_42.pt --evaluate-only
 ```
 
 ## 数据与评估
@@ -42,7 +42,7 @@
 
 使用编码器 128 维归一化 invariant 特征和欧氏距离。Acc@1/5/10 为真值实例排名不超过相应阈值的查询比例；MRR 为倒数排名均值。距离相同时使用保守的 <= 排名。每个查询只有一个真值照片。
 
-输出：`manifest.json` 为环境与数据审计，`history.jsonl` 为各轮指标，`retrieval_epoch_001.json` 为全部查询排名及 top10，`last.pt` 含模型、正则器、优化器与随机状态。默认仅保存最后一轮，不通过测试集指标选模型。设置固定种子但不承诺不同 CUDA 环境逐位一致。
+输出：`manifest.json` 为环境与数据审计，`history.jsonl` 为各轮指标，`retrieval_epoch_001.json` 为全部查询排名及 top10，`last_42.pt` 含模型、正则器、优化器与随机状态。默认仅保存最后一轮，不通过测试集指标选模型。设置固定种子但不承诺不同 CUDA 环境逐位一致。
 
 ## 实现修复与复现边界
 
@@ -85,4 +85,6 @@ python train.py --dataset chair --epoch 300 --batch_size 4 --seed 42 --swanlab_p
 
 ## Checkpoint saving
 
-`train.py` and `Code/run_qmul.py` copy each checkpoint to an independent CPU snapshot, then write it on a single background thread. The CPU snapshot still briefly blocks training; disk I/O runs asynchronously. If a previous save is still running, the current save is skipped to bound memory use. Snapshot or disk-write failures log a warning and training continues; later epochs retry. Writes use `last.pt.tmp` followed by replacement of `last.pt`, preserving the previous checkpoint on failure. Exiting waits for an outstanding save. `last.pt` represents the latest successful save and may lag training or SwanLab logs. The original `Code/main.py` entry point is unchanged.
+`train.py` and `Code/run_qmul.py` copy each checkpoint to an independent CPU snapshot, then write it on a single background thread. The CPU snapshot still briefly blocks training; disk I/O runs asynchronously. If a previous save is still running, the current save is skipped to bound memory use. Snapshot or disk-write failures log a warning and training continues; later epochs retry. Writes use `last_42.pt.tmp` followed by replacement of `last_42.pt`, preserving the previous checkpoint on failure. Exiting waits for an outstanding save. `last_42.pt` represents the latest successful save and may lag training or SwanLab logs. The original `Code/main.py` entry point is unchanged.
+
+Checkpoint filenames include the `--seed` value: `last_<seed>.pt` (for example, `last_42.pt`); temporary files use `last_<seed>.pt.tmp`. Automatic resume searches `*.pt`, so both legacy and seed-suffixed checkpoints remain discoverable.

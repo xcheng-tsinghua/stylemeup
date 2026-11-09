@@ -86,7 +86,8 @@ def main(argv=None, tracker=None):
     torch.set_num_threads(4)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
-    if (out/'last.pt').exists() and not args.resume:
+    checkpoint_path = out / f'last_{args.seed}.pt'
+    if ((out/'last.pt').exists() or any(out.glob('last_*.pt'))) and not args.resume:
         raise FileExistsError('Output contains a checkpoint; use --resume or a new --output')
     train = QMUL(args.root,args.category,'train'); test = QMUL(args.root,args.category,'test')
     manifest = dict(config=vars(args), train=train.audit(), test=test.audit(), torch=torch.__version__,
@@ -113,7 +114,7 @@ def main(argv=None, tracker=None):
         tracker.start(args, ckpt if args.resume else None)
     loader = DataLoader(train,batch_size=args.meta_batch,shuffle=True,num_workers=args.workers)
     start=time.time()
-    with AsyncCheckpointWriter(out/'last.pt') as writer:
+    with AsyncCheckpointWriter(checkpoint_path) as writer:
         for epoch in range(first_epoch,args.epochs):
             model.train(); losses=[]
             for step,batch in enumerate(loader,1):
