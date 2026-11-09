@@ -82,3 +82,7 @@ python train.py --dataset chair --epoch 300 --batch_size 4 --seed 42 --swanlab_p
 新检查点保存 SwanLab 实验 ID，通过 `resume="must"` 续写同一实验，云端实验不存在或无法认证时会报错。旧入口生成的检查点没有实验 ID，可恢复训练，但会警告并创建新的 SwanLab 实验。每轮上传 `Acc@1`、`Acc@5`（0–100 百分比）、`loss`、`epoch`，step 使用累计 epoch。检查点原子替换，保存后再上传；恢复时重放最后一轮指标以补偿上传中断。
 
 `--max_steps 1 --epoch 1` 可用于冒烟检查，但评估仍遍历全部测试数据。可用 `--eval_batch` 控制评估批大小。
+
+## Checkpoint saving
+
+`train.py` and `Code/run_qmul.py` copy each checkpoint to an independent CPU snapshot, then write it on a single background thread. The CPU snapshot still briefly blocks training; disk I/O runs asynchronously. If a previous save is still running, the current save is skipped to bound memory use. Snapshot or disk-write failures log a warning and training continues; later epochs retry. Writes use `last.pt.tmp` followed by replacement of `last.pt`, preserving the previous checkpoint on failure. Exiting waits for an outstanding save. `last.pt` represents the latest successful save and may lag training or SwanLab logs. The original `Code/main.py` entry point is unchanged.

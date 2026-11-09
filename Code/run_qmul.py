@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from PIL import Image
 from Networks import VAE_Network, Regulariser
 from qmul_data import QMUL, image_tensor, raster
+from checkpoint_writer import AsyncCheckpointWriter
 
 
 class Objective(torch.nn.Module):
@@ -112,44 +113,44 @@ def main(argv=None, tracker=None):
         tracker.start(args, ckpt if args.resume else None)
     loader = DataLoader(train,batch_size=args.meta_batch,shuffle=True,num_workers=args.workers)
     start=time.time()
-    for epoch in range(first_epoch,args.epochs):
-        model.train(); losses=[]
-        for step,batch in enumerate(loader,1):
-            optimizer.zero_grad(set_to_none=True)
-            for episode in batch.to(device):
-                styles=random.sample([2,3,4],3)
-                params=dict(model.named_parameters())
-                inner=model(episode[[0,1,styles[0],styles[1]]])
-                grads=torch.autograd.grad(inner,tuple(params.values()))
-                adapted={name:p-args.fast_lr*g.detach() for (name,p),g in zip(params.items(),grads)}
-                # Preserve first-order MAML for VAE weights, but retain the analytic
-                # derivative through the learned weighted-L1 regulariser.
-                for name,scale in [('vae.encoder.invar.weight',reg.params[:,:-1]),('vae.encoder.invar.bias',reg.params[:,-1])]:
-                    adapted[name]=adapted[name]-args.fast_lr*scale*params[name].detach().sign()
-                loss=functional_call(model,adapted,(episode[[0,1,styles[1],styles[2]]],))
-                if not torch.isfinite(loss): raise RuntimeError('Non-finite meta loss')
-                (loss/len(batch)).backward(); losses.append(loss.item())
-            if not all(p.grad is not None and torch.isfinite(p.grad).all() for p in reg.parameters()):
-                raise RuntimeError('Missing/nonfinite regulariser hypergradient')
-            torch.nn.utils.clip_grad_norm_(list(model.parameters())+list(reg.parameters()),10,error_if_nonfinite=True)
-            optimizer.step()
-            if step==1 or step%10==0:
-                print(f'epoch={epoch+1} step={step}/{len(loader)} loss={np.mean(losses[-len(batch):]):.5f} elapsed={time.time()-start:.1f}s',flush=True)
-            if args.max_steps and step>=args.max_steps: break
-        metrics=evaluate(model,test,device,args.eval_batch,out/f'retrieval_epoch_{epoch+1:03}.json')
-        record=dict(epoch=epoch+1,loss=float(np.mean(losses)),seconds=time.time()-start,**metrics)
-        checkpoint=dict(model=model.state_dict(),regulariser=reg.state_dict(),optimizer=optimizer.state_dict(),
-                        epoch=epoch,config=vars(args),python_rng=random.getstate(),numpy_rng=np.random.get_state(),
-                        torch_rng=torch.get_rng_state(),cuda_rng=torch.cuda.get_rng_state_all() if device.type=='cuda' else [])
-        if tracker is not None:
-            checkpoint['swanlab'] = tracker.identity
-            checkpoint['record'] = record
-        torch.save(checkpoint,out/'last.pt.tmp')
-        (out/'last.pt.tmp').replace(out/'last.pt')
-        if tracker is not None:
-            tracker.log(record)
-        with (out/'history.jsonl').open('a',encoding='utf-8') as f: f.write(json.dumps(record)+'\n')
-        print(json.dumps(record),flush=True)
+    with AsyncCheckpointWriter(out/'last.pt') as writer:
+        for epoch in range(first_epoch,args.epochs):
+            model.train(); losses=[]
+            for step,batch in enumerate(loader,1):
+                optimizer.zero_grad(set_to_none=True)
+                for episode in batch.to(device):
+                    styles=random.sample([2,3,4],3)
+                    params=dict(model.named_parameters())
+                    inner=model(episode[[0,1,styles[0],styles[1]]])
+                    grads=torch.autograd.grad(inner,tuple(params.values()))
+                    adapted={name:p-args.fast_lr*g.detach() for (name,p),g in zip(params.items(),grads)}
+                    # Preserve first-order MAML for VAE weights, but retain the analytic
+                    # derivative through the learned weighted-L1 regulariser.
+                    for name,scale in [('vae.encoder.invar.weight',reg.params[:,:-1]),('vae.encoder.invar.bias',reg.params[:,-1])]:
+                        adapted[name]=adapted[name]-args.fast_lr*scale*params[name].detach().sign()
+                    loss=functional_call(model,adapted,(episode[[0,1,styles[1],styles[2]]],))
+                    if not torch.isfinite(loss): raise RuntimeError('Non-finite meta loss')
+                    (loss/len(batch)).backward(); losses.append(loss.item())
+                if not all(p.grad is not None and torch.isfinite(p.grad).all() for p in reg.parameters()):
+                    raise RuntimeError('Missing/nonfinite regulariser hypergradient')
+                torch.nn.utils.clip_grad_norm_(list(model.parameters())+list(reg.parameters()),10,error_if_nonfinite=True)
+                optimizer.step()
+                if step==1 or step%10==0:
+                    print(f'epoch={epoch+1} step={step}/{len(loader)} loss={np.mean(losses[-len(batch):]):.5f} elapsed={time.time()-start:.1f}s',flush=True)
+                if args.max_steps and step>=args.max_steps: break
+            metrics=evaluate(model,test,device,args.eval_batch,out/f'retrieval_epoch_{epoch+1:03}.json')
+            record=dict(epoch=epoch+1,loss=float(np.mean(losses)),seconds=time.time()-start,**metrics)
+            checkpoint=dict(model=model.state_dict(),regulariser=reg.state_dict(),optimizer=optimizer.state_dict(),
+                            epoch=epoch,config=vars(args),python_rng=random.getstate(),numpy_rng=np.random.get_state(),
+                            torch_rng=torch.get_rng_state(),cuda_rng=torch.cuda.get_rng_state_all() if device.type=='cuda' else [])
+            if tracker is not None:
+                checkpoint['swanlab'] = tracker.identity
+                checkpoint['record'] = record
+            writer.submit(checkpoint)
+            if tracker is not None:
+                tracker.log(record)
+            with (out/'history.jsonl').open('a',encoding='utf-8') as f: f.write(json.dumps(record)+'\n')
+            print(json.dumps(record),flush=True)
 
 
 if __name__=='__main__':

@@ -21,14 +21,14 @@ def boolean(value):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--epoch', type=int, default=200, help='Total target epochs, including resumed epochs')
-    parser.add_argument('--batch_size', type=int, default=4, help='Number of meta-training episodes per batch')
+    parser.add_argument('--epoch', type=int, default=50, help='Total target epochs, including resumed epochs')
+    parser.add_argument('--batch_size', type=int, default=64, help='Number of meta-training episodes per batch')
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--swanlab_api_key', default=os.environ.get('SWANLAB_API_KEY'), help='Defaults to SWANLAB_API_KEY or existing login')
+    parser.add_argument('--swanlab_api_key', default='IV17QULap1Ekc1OF7mN88', help='Defaults to SWANLAB_API_KEY or existing login')
     parser.add_argument('--swanlab_project', default='StyleMeUp')
     parser.add_argument('--dataset', choices=['shoe', 'chair'], required=True)
     parser.add_argument('--resume', type=boolean, nargs='?', const=True, default=False)
-    parser.add_argument('--root', type=Path, default=Path(r'D:\document\DataSet\sketch_retrieval\qmul_v2_fit'))
+    parser.add_argument('--root', type=Path, default=Path(r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit'))
     parser.add_argument('--output', type=Path, default=ROOT / 'runs', help='Checkpoint search root; new runs get a unique subdirectory')
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--fast_lr', type=float, default=.005)
@@ -94,8 +94,8 @@ class SwanLabTracker:
         run = self.swanlab.init(**options)
         self.started = True
         self.identity = dict(id=run.id, project=self.project)
-        # Checkpoint is saved before cloud upload. Replay its final step on restart
-        # to recover an interrupted upload; SwanLab ignores already recorded steps.
+        # Replay the last successful checkpoint on restart; asynchronous saves
+        # may lag cloud logging. SwanLab ignores already recorded steps.
         if previous and checkpoint.get('record'):
             self.log(checkpoint['record'])
 

@@ -91,17 +91,15 @@ python train.py --sketch_model=vit --root_sever=/opt/data/private/data_set/sketc
 for task in fg cl; do for seed in 92 48 69 83 5; do CUDA_VISIBLE_DEVICES=0 python -u train.py --task "$task" --seed "$seed" --epoch 60 --batch_size 16 --workers 4 --eval_batch_size 64 --resume False || break 2; done; done
 
 
-python train.py --task=fg --seed=92 --resume && \
-python train.py --task=fg --seed=48 --resume && \
-python train.py --task=fg --seed=69 --resume && \
-python train.py --task=fg --seed=83 --resume
-
-python train.py --task=fg --seed=5 --resume && \
-python train.py --task=cl --seed=92 --resume && \
-python train.py --task=cl --seed=48 --resume && \
-python train.py --task=cl --seed=69 --resume
-
-python train.py --task=cl --seed=83 --resume && \
-python train.py --task=cl --seed=5 --resume
+python train.py --dataset=shoe --seed=92 --resume && \
+python train.py --dataset=shoe --seed=48 --resume && \
+python train.py --dataset=shoe --seed=69 --resume && \
+python train.py --dataset=shoe --seed=83 --resume && \
+python train.py --dataset=shoe --seed=5 --resume && \
+python train.py --dataset=chair --seed=92 --resume && \
+python train.py --dataset=chair --seed=48 --resume && \
+python train.py --dataset=chair --seed=69 --resume && \
+python train.py --dataset=chair --seed=83 --resume && \
+python train.py --dataset=chair --seed=5 --resume
 
 
