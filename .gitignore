@@ -1,0 +1,56 @@
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local Python environments
+.venv/
+venv/
+env/
+.conda/
+
+# Editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+
+# Local credentials (keep example configuration files)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Datasets and generated model/data files
+Datas*/
+data/
+datasets/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.npz
+*.xml
+
+# Training outputs (keep the checked-in results summary)
+/runs/*
+!/runs/RESULTS.md
+swanlog/
+swanlab/
+wandb/
+events.out.tfevents.*
+*.log
+
+# Build and notebook artifacts
+build/
+dist/
+*.egg-info/
+.ipynb_checkpoints/
